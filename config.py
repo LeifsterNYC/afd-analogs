@@ -6,6 +6,9 @@ WFO = "BGM"
 # NOAA LCD station IDs
 STATIONS = ["KBGM"]
 
+# ASOS stations for METAR obs
+METAR_STATIONS = ["KBGM", "KRME", "KAVP", "KELM", "KITH"]
+
 # date range
 START_YEAR = 2003
 END_YEAR = 2025
@@ -14,4 +17,5 @@ END_YEAR = 2025
 DATA_DIR = Path("data")
 RAW_AFD_DIR = DATA_DIR / "raw" / "afds"
 RAW_OBS_DIR = DATA_DIR / "raw" / "obs"
+RAW_METAR_DIR = DATA_DIR / "raw" / "metar"
 PROCESSED_DIR = DATA_DIR / "processed"

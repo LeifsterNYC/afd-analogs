@@ -1,1 +1,6 @@
 requests
+pandas
+numpy
+torch
+sentence-transformers
+faiss-cpu
