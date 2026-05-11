@@ -22,6 +22,8 @@ def train(
     batch_size=64,
     val_split=0.1,
     test_split=0.1,
+    max_seq_length=4096,
+    use_amp=False,
     seed=42,
 ):
     if data_path is None:
@@ -59,7 +61,7 @@ def train(
 
     print(f"Loading base model: {model_name}")
     model = SentenceTransformer(model_name, trust_remote_code=True)
-    model.max_seq_length = 2048  # covers ~95% of AFDs; longest tail gets truncated
+    model.max_seq_length = max_seq_length
 
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)
     loss_fn = losses.TripletLoss(model=model)
@@ -84,7 +86,7 @@ def train(
         output_path=str(output_dir),
         save_best_model=True,
         show_progress_bar=True,
-        use_amp=True,
+        use_amp=use_amp,
     )
 
     print(f"Model saved to {output_dir}")
@@ -95,6 +97,10 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="jinaai/jina-embeddings-v2-base-en")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--max-seq", type=int, default=4096,
+                        help="max token length; drop to 2048 on small GPUs")
+    parser.add_argument("--amp", action="store_true",
+                        help="enable fp16 AMP; needed on <40GB GPUs but can hurt TripletLoss stability")
     parser.add_argument("--data", default=None)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
@@ -105,4 +111,6 @@ if __name__ == "__main__":
         output_dir=args.out,
         epochs=args.epochs,
         batch_size=args.batch_size,
+        max_seq_length=args.max_seq,
+        use_amp=args.amp,
     )
