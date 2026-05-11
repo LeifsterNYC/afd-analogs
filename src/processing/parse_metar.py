@@ -50,8 +50,9 @@ def _daily_for_station(df):
 
     daily["wind"]        = daily["wind_kts"] * KT_TO_MPH
     daily["max_gust"]    = daily["max_gust_kts"] * KT_TO_MPH
-    daily["thunderstorm"] = daily["wx_combined"].str.contains(r"\bTS\b").astype(float)
-    daily["fzra"]        = daily["wx_combined"].str.contains(r"\bFZRA\b").astype(float)
+    # TS appears in TS, +TS, -TS, TSRA, TSGR, TSSN, VCTS, etc. — any substring "TS" is a thunderstorm signal.
+    daily["thunderstorm"] = daily["wx_combined"].str.contains("TS").astype(float)
+    daily["fzra"]        = daily["wx_combined"].str.contains("FZRA").astype(float)
 
     return daily.drop(columns=["wind_kts", "max_gust_kts", "wx_combined"])
 

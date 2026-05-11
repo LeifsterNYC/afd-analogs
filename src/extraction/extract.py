@@ -6,6 +6,7 @@ import os
 import re
 import time
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 import config
@@ -68,7 +69,19 @@ def extract_frames(text, retries=2):
     raise RuntimeError(f"extract failed after {retries+1} tries: {last_err}")
 
 
-def run(limit=None, start_from=None):
+def _process_one(r):
+    out_path = OUT_DIR / f"{r['date']}.json"
+    if out_path.exists():
+        return r["date"], "skip", None
+    try:
+        frames = extract_frames(r["text"])
+    except Exception as e:
+        return r["date"], "fail", str(e)
+    out_path.write_text(json.dumps(frames, indent=2))
+    return r["date"], "ok", None
+
+
+def run(limit=None, start_from=None, workers=4):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(config.PROCESSED_DIR / "paired_dataset.json") as f:
         records = json.load(f)
@@ -80,22 +93,22 @@ def run(limit=None, start_from=None):
 
     done = 0
     failed = 0
-    for r in records:
-        out_path = OUT_DIR / f"{r['date']}.json"
-        if out_path.exists():
-            continue
-        try:
-            frames = extract_frames(r["text"])
-        except Exception as e:
-            print(f"{r['date']} — failed: {e}")
-            failed += 1
-            continue
-        out_path.write_text(json.dumps(frames, indent=2))
-        done += 1
-        if done % 10 == 0:
-            print(f"  {done} extracted, {failed} failed")
+    skipped = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_process_one, r): r for r in records}
+        for fut in as_completed(futures):
+            date, status, err = fut.result()
+            if status == "ok":
+                done += 1
+            elif status == "fail":
+                failed += 1
+                print(f"{date} — failed: {err}")
+            else:
+                skipped += 1
+            if (done + failed) % 20 == 0 and (done + failed) > 0:
+                print(f"  progress: {done} ok / {failed} failed / {skipped} skip")
 
-    print(f"Done. {done} extracted, {failed} failed. Output in {OUT_DIR}")
+    print(f"Done. {done} extracted, {failed} failed, {skipped} skipped. Output in {OUT_DIR}")
 
 
 if __name__ == "__main__":
@@ -104,5 +117,6 @@ if __name__ == "__main__":
                         help="cap on number of AFDs to extract (for testing)")
     parser.add_argument("--start-from", default=None,
                         help="resume from a date (YYYY-MM-DD)")
+    parser.add_argument("--workers", type=int, default=4)
     args = parser.parse_args()
-    run(limit=args.limit, start_from=args.start_from)
+    run(limit=args.limit, start_from=args.start_from, workers=args.workers)
