@@ -4,3 +4,4 @@ venv/
 .env
 data/
 .ipynb_checkpoints/
+*.pdf

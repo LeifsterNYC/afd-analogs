@@ -50,10 +50,8 @@ def _daily_for_station(df):
 
     daily["wind"]        = daily["wind_kts"] * KT_TO_MPH
     daily["max_gust"]    = daily["max_gust_kts"] * KT_TO_MPH
-    # KAVP 2003-2007 has dozens of 195-200 kt gust readings (impossible). Drop anything above
-    # a realistic regional ceiling so the similarity vector doesn't get poisoned by sensor errors.
+    # KAVP 2003-2007 has dozens of 195-200 kt gust readings (impossible)
     daily.loc[daily["max_gust"] > 100, "max_gust"] = np.nan
-    # TS appears in TS, +TS, -TS, TSRA, TSGR, TSSN, VCTS, etc. — any substring "TS" is a thunderstorm signal.
     daily["thunderstorm"] = daily["wx_combined"].str.contains("TS").astype(float)
     daily["fzra"]        = daily["wx_combined"].str.contains("FZRA").astype(float)
 

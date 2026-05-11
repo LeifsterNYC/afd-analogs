@@ -31,7 +31,7 @@ def build(out_path=None):
         print("No METAR data found, using LCD only")
 
     # KRME station and LCD snow data only exist from 2007 onward. Earlier records would have
-    # structurally incomplete feature vectors, biasing the triplet miner toward false matches.
+    # structurally incomplete feature vectors, biasing the triplets toward false matches.
     MIN_DATE = "2007-01-01"
 
     records = []
