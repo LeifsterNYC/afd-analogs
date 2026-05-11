@@ -1,4 +1,5 @@
 import argparse
+import json
 import random
 from pathlib import Path
 import sys
@@ -20,6 +21,7 @@ def train(
     epochs=3,
     batch_size=64,
     val_split=0.1,
+    test_split=0.1,
     seed=42,
 ):
     if data_path is None:
@@ -33,9 +35,17 @@ def train(
     records = load_records(data_path)
     random.shuffle(records)
 
-    split = int(len(records) * (1 - val_split))
-    train_records, val_records = records[:split], records[split:]
-    print(f"  {len(train_records)} train / {len(val_records)} val")
+    n = len(records)
+    n_test = int(n * test_split)
+    n_val = int(n * val_split)
+    test_records = records[:n_test]
+    val_records = records[n_test:n_test + n_val]
+    train_records = records[n_test + n_val:]
+    print(f"  {len(train_records)} train / {len(val_records)} val / {len(test_records)} test")
+
+    test_path = config.PROCESSED_DIR / "test_split.json"
+    with open(test_path, "w") as f:
+        json.dump(test_records, f)
 
     print("Building triplets...")
     train_triplets = build_triplets(train_records)
@@ -49,7 +59,7 @@ def train(
 
     print(f"Loading base model: {model_name}")
     model = SentenceTransformer(model_name, trust_remote_code=True)
-    model.max_seq_length = 4096  # our longest AFD is ~2840 tokens; 4096 covers everything
+    model.max_seq_length = 2048  # covers ~95% of AFDs; longest tail gets truncated
 
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)
     loss_fn = losses.TripletLoss(model=model)
@@ -74,6 +84,7 @@ def train(
         output_path=str(output_dir),
         save_best_model=True,
         show_progress_bar=True,
+        use_amp=True,
     )
 
     print(f"Model saved to {output_dir}")

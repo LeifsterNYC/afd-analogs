@@ -30,7 +30,15 @@ def fetch_station_year(station, year):
     base_params = "&".join(f"{k}={v}" for k, v in params.items() if k != "data")
     url = f"{BASE_URL}?{base_params}&{data_params}"
 
-    resp = requests.get(url, timeout=60)
+    for attempt in range(5):
+        resp = requests.get(url, timeout=60)
+        if resp.status_code in (429, 500, 502, 503, 504):
+            wait = 5 * (2 ** attempt)
+            print(f"  {station} {year} — {resp.status_code}, backing off {wait}s")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        return resp.text
     resp.raise_for_status()
     return resp.text
 
@@ -53,7 +61,7 @@ def scrape():
             except requests.RequestException as e:
                 print(f"{station} {year} — error: {e}")
 
-            time.sleep(0.5)
+            time.sleep(1.0)
 
 
 if __name__ == "__main__":
