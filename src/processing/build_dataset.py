@@ -30,8 +30,14 @@ def build(out_path=None):
     else:
         print("No METAR data found, using LCD only")
 
+    # KRME station and LCD snow data only exist from 2007 onward. Earlier records would have
+    # structurally incomplete feature vectors, biasing the triplet miner toward false matches.
+    MIN_DATE = "2007-01-01"
+
     records = []
     for date, text in afds.items():
+        if date < MIN_DATE:
+            continue
         if date not in lcd.index:
             continue
 
