@@ -5,7 +5,7 @@
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{amsmath}
-\usepackage{microtype}
+\usepackage[final,expansion=false]{microtype}
 \usepackage{caption}
 
 \title{Historical Weather Pattern Matching via NLP Analysis of Forecast Discussions}
@@ -75,6 +75,10 @@ For each AFD in the held-out test set (\(n=681\)) we retrieve the top-\(K\) most
 
 The weather similarity function used both during training (to mine triplets) and during evaluation (to score retrievals) is the same: \(1 - \|v_a - v_b\| / \mathrm{MAX\_DIST}\) on the 37-dimensional normalized vector.
 
+\paragraph{Note on the metric's range.} \(\mathrm{MAX\_DIST}\) is the theoretical maximum L2 distance assuming every feature is simultaneously at its climatological extreme (e.g., temperatures at -25\textdegree F and +95\textdegree F at the same time). Real pairs of days never get close to that bound, so observed similarity values cluster well above 0.5. On top of this compression, all our records come from a single CWA in upstate New York, where any two random January days share a winter climatology and look broadly similar by construction. Both factors push the random baseline up to roughly 0.79.
+
+Because the absolute scale is misleading, we also report a \emph{skill score} that re-bases the comparison against random: \(\mathrm{skill}(m) = \bigl(m - \mathrm{random}\bigr) / \bigl(1 - \mathrm{random}\bigr)\). Random scores 0\% skill by construction; a perfect retriever scores 100\%.
+
 \subsection{Results}
 
 \begin{table}[h]
@@ -90,6 +94,21 @@ Extraction (Jaccard) & & & & \\
 \bottomrule
 \end{tabular}
 \caption{Mean top-\(K\) weather similarity on the held-out test set, with 95\% CI half-width. Higher is better. Random is averaged over 20 seeds.}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Method & \(K{=}1\) & \(K{=}3\) & \(K{=}5\) & \(K{=}10\) \\
+\midrule
+Random          & 0\% & 0\% & 0\% & 0\% \\
+Zero-shot Jina  & 27.0\% & 23.2\% & 21.8\% & 20.7\% \\
+Contrastive FT  & 22.8\% & 20.6\% & 19.4\% & 18.8\% \\
+Extraction (Jaccard) & & & & \\
+\bottomrule
+\end{tabular}
+\caption{Skill score \((m - \mathrm{random})/(1 - \mathrm{random})\) at each \(K\). 0\% means tied with random, 100\% means perfect retrieval. The 4-point gap between zero-shot and fine-tuned at \(K{=}1\) corresponds to roughly 15\% of the total skill the pretrained model achieved.}
 \end{table}
 
 \paragraph{Contrastive fine-tuning hurt retrieval.}
