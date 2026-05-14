@@ -1,0 +1,143 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{caption}
+
+\title{Historical Weather Pattern Matching via NLP Analysis of Forecast Discussions}
+\author{
+  Leif Rogers (lfr42) \and
+  Jingyu Xu (jx62) \and
+  Eric Gao (xg255)
+}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+\noindent\textbf{AI Keywords:} Natural Language Processing, Information Extraction, Semantic Similarity, Transformer Models \\
+\textbf{Application setting:} Weather forecasting and meteorological analysis \\
+\textbf{Other contributors:}
+
+\section{Project Description}
+
+\subsection{What we planned}
+
+NWS forecasters write Area Forecast Discussions (AFDs) several times a day, describing current atmospheric conditions and what they expect to happen. These narratives are detailed and information-rich, but because they are unstructured text, there is no easy way to search across years of them and ask ``when have we seen conditions like this before?''
+
+We wanted to build an NLP system that takes a current AFD and retrieves the most semantically similar historical discussions from a large archive, then shows what weather actually occurred on those dates. To make the retrieval meaningful, we planned to train text embeddings using observed weather data from NOAA archives as a training signal. By pushing together AFDs that preceded similar actual weather outcomes, the model would learn to capture underlying meteorological meaning rather than just surface-level wording. This was intended to let us build a retrieval system without manually labeling thousands of discussions by event type.
+
+The central AI challenge is learning text representations of forecast discussions that capture meteorological meaning rather than just lexical overlap. A naive keyword search would miss the fact that ``persistent northwesterly flow off Cayuga Lake'' and ``lake-enhanced snow bands setting up in the Ithaca area'' describe closely related setups. Our primary approach was to fine-tune a pretrained transformer using contrastive learning: pair each AFD with its corresponding observed weather, define a similarity function over the weather observations, and train so that AFDs whose outcomes were similar get pulled together in embedding space, while those with different outcomes get pushed apart.
+
+As a comparison we also planned a more explicit approach: extract structured event frames from each AFD with fields like event type, intensity, region, timing, and mechanism (either with BIO sequence labeling on RoBERTa, or with few-shot LLM prompting). Retrieval would then become matching over those structured fields instead of comparing dense vectors. Running both approaches lets us see whether learned embeddings or explicit extraction does a better job.
+
+\subsection{What the project actually became}
+We built and evaluated four retrieval methods against held-out test AFDs:
+\begin{enumerate}
+  \item A random baseline (floor),
+  \item Zero-shot retrieval using a pretrained Jina v2 sentence embedding,
+  \item A contrastive fine-tune of the same embedding using triplet loss with hardest-positive / hardest-negative mining over a 37-dimensional weather vector,
+  \item A structured-extraction retrieval that parses each AFD into JSON event frames via a large language model and matches by frame-field overlap.
+\end{enumerate}
+
+
+Data covers 2007--2025 for the NWS Binghamton (BGM) county warning area, with per-station METAR observations from KBGM, KRME, KAVP, KELM, KITH plus CWA-wide snow totals from NOAA LCD, paired with the daily AFD corpus from IEM. After cleaning we had 6{,}810 AFD--weather pairs, split 80/10/10 into train/val/test.
+
+\subsection{Key aspects of AI}
+The core AI content is in two places:
+
+\paragraph{Contrastive sentence representation learning.}
+We fine-tune \texttt{jinaai/jina-embeddings-v2-base-en} using a triplet loss
+\(\mathcal{L} = \max\bigl(0,\, d(a,p) - d(a,n) + m\bigr)\)
+where the positive and negative for each anchor AFD are mined by full-pairwise search over a similarity defined on observed weather. The weather similarity itself is the normalized Euclidean distance over a 37-dimensional vector built from per-station temperature, wind, gust, precipitation, thunderstorm and freezing-rain indicators, plus CWA-wide snow totals. This makes the textual representation learn to pull together AFDs that preceded similar real-world outcomes, rather than those that share surface vocabulary.
+
+\paragraph{LLM-based structured information extraction.}
+As a comparison approach the proposal called for either BIO sequence labeling with RoBERTa or LLM prompting. We chose LLM prompting because the project has no annotated training data for BIO. Each AFD is sent to Claude with a few-shot prompt asking for a JSON array of event frames \(\{\textit{event\_type}, \textit{intensity}, \textit{region}, \textit{time}, \textit{mechanism}\}\). Retrieval is then a Jaccard overlap on the frame signatures.
+
+\subsection{Data pipeline}
+
+
+\section{Evaluation}
+
+\subsection{Questions asked}
+\begin{enumerate}
+  \item Does contrastive fine-tuning on the weather-similarity signal produce better retrievals than a strong pretrained embedding?
+  \item Does an explicit structured-extraction approach beat dense embedding retrieval?
+  \item How far above random does any of this get us?
+\end{enumerate}
+
+\subsection{Methodology}
+For each AFD in the held-out test set (\(n=681\)) we retrieve the top-\(K\) most similar AFDs from the rest of the corpus (\(n=6{,}129\)) and compute the mean weather similarity between the test AFD's actual observed weather and the actual weather of each retrieved match. The metric is the mean across the test set; higher is better. We report \(K \in \{1, 3, 5, 10\}\), standard deviation across queries, a 95\% confidence interval on the mean, and a paired \(t\)-statistic for fine-tuned versus zero-shot. The random baseline is averaged over 20 independent draws to stabilize the floor.
+
+The weather similarity function used both during training (to mine triplets) and during evaluation (to score retrievals) is the same: \(1 - \|v_a - v_b\| / \mathrm{MAX\_DIST}\) on the 37-dimensional normalized vector.
+
+\subsection{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Method & \(K{=}1\) & \(K{=}3\) & \(K{=}5\) & \(K{=}10\) \\
+\midrule
+Random          & 0.7904 \(\pm\) 0.006 & 0.7935 \(\pm\) 0.004 & 0.7939 \(\pm\) 0.004 & 0.7929 \(\pm\) 0.003 \\
+Zero-shot Jina  & 0.8469 \(\pm\) 0.004 & 0.8415 \(\pm\) 0.003 & 0.8389 \(\pm\) 0.003 & 0.8358 \(\pm\) 0.003 \\
+Contrastive FT  & 0.8381 \(\pm\) 0.005 & 0.8361 \(\pm\) 0.003 & 0.8339 \(\pm\) 0.003 & 0.8319 \(\pm\) 0.003 \\
+Extraction (Jaccard) & & & & \\
+\bottomrule
+\end{tabular}
+\caption{Mean top-\(K\) weather similarity on the held-out test set, with 95\% CI half-width. Higher is better. Random is averaged over 20 seeds.}
+\end{table}
+
+\paragraph{Contrastive fine-tuning hurt retrieval.}
+Across every \(K\) the fine-tuned model was statistically significantly \emph{worse} than the zero-shot baseline. At \(K{=}1\) the mean difference was \(-0.0088\) with paired \(t = -3.47\) over 681 queries (\(p < 0.001\)), and the fine-tuned model beat the zero-shot model on only 35.8\% of queries. The same pattern held at \(K{=}3, 5, 10\) with \(t \in [-3.85, -3.29]\) and per-query win rates between 44.5\% and 46.4\%.
+
+\paragraph{Pretrained embeddings already capture meaningful weather semantics.}
+The zero-shot model lifted retrieval similarity 5.6 percentage points above random at \(K{=}1\) (0.7904 \(\rightarrow\) 0.8469). That is the real win of the project: the textual content of an AFD, embedded by a generic pretrained sentence transformer, is predictive of the actual weather that followed without any task-specific training.
+
+\paragraph{Structured extraction.}
+
+
+\subsection{Why the contrastive approach failed}
+We see three plausible reasons, in roughly decreasing order of likelihood.
+\begin{enumerate}
+  \item \textbf{Training set is too small.} 6{,}129 anchors produce 6{,}129 triplets, which the model overfits in fewer than 100 gradient steps. Validation triplet ordering accuracy actually declined epoch-over-epoch (epoch 1: 85.76\%, epoch 2: 84.73\%, epoch 3: 83.26\%). The best-by-evaluator checkpoint was epoch 1 and even that already underperforms the pretrained model on the downstream retrieval task.
+  \item \textbf{Hardest-pair mining is too aggressive.} The miner pairs each anchor with its single most-similar and most-dissimilar AFD over the entire training set. With a small corpus this means the model repeatedly sees the same extreme pairs and learns to memorize them rather than to generalize.
+  \item \textbf{Pretrained prior is strong, target signal is weak.} Jina v2 was trained on hundreds of millions of sentence pairs. Our downstream similarity is a normalized Euclidean distance on a 37-dimensional vector with a high seasonal autocorrelation floor (random retrieval already scores 0.79). The contrastive update damages the pretrained representation more than the weather signal can repair it.
+\end{enumerate}
+
+\subsection{What we would do differently}
+
+
+\section{Conclusion}
+
+
+\section*{References}
+\begin{itemize}
+  \item Jina AI. \emph{jina-embeddings-v2-base-en}. \url{https://huggingface.co/jinaai/jina-embeddings-v2-base-en}
+  \item Reimers, N., \& Gurevych, I. (2019). Sentence-BERT. EMNLP-IJCNLP.
+  \item Schroff, F., Kalenichenko, D., \& Philbin, J. (2015). FaceNet: A unified embedding for face recognition and clustering. CVPR.
+  \item Iowa Environmental Mesonet, NWS Text Archives. \url{https://mesonet.agron.iastate.edu/}
+  \item NOAA NCEI Local Climatological Data. \url{https://www.ncei.noaa.gov/cdo-web/}
+  \item FAISS. \url{https://github.com/facebookresearch/faiss}
+\end{itemize}
+
+\section*{Software Resources}
+\begin{itemize}
+  \item Hugging Face Transformers and sentence-transformers libraries (model loading, triplet loss, evaluator)
+  \item PyTorch (training)
+  \item FAISS (approximate nearest neighbor over embeddings)
+  \item Anthropic Claude (LLM prompting for structured extraction)
+\end{itemize}
+
+\section*{Data Resources}
+\begin{itemize}
+  \item NWS AFD text archive via IEM (Iowa Environmental Mesonet), 2007--2025
+  \item IEM ASOS hourly METAR observations for five BGM-CWA stations: KBGM, KRME, KAVP, KELM, KITH
+  \item NOAA NCEI Local Climatological Data for daily snow totals and depth, station KBGM
+\end{itemize}
+
+\end{document}
