@@ -90,7 +90,7 @@ Method & \(K{=}1\) & \(K{=}3\) & \(K{=}5\) & \(K{=}10\) \\
 Random          & 0.7904 \(\pm\) 0.006 & 0.7935 \(\pm\) 0.004 & 0.7939 \(\pm\) 0.004 & 0.7929 \(\pm\) 0.003 \\
 Zero-shot Jina  & 0.8469 \(\pm\) 0.004 & 0.8415 \(\pm\) 0.003 & 0.8389 \(\pm\) 0.003 & 0.8358 \(\pm\) 0.003 \\
 Contrastive FT  & 0.8381 \(\pm\) 0.005 & 0.8361 \(\pm\) 0.003 & 0.8339 \(\pm\) 0.003 & 0.8319 \(\pm\) 0.003 \\
-Extraction (Jaccard) & & & & \\
+Extraction (Jaccard) & \textbf{0.8495} \(\pm\) 0.004 & \textbf{0.8442} \(\pm\) 0.003 & \textbf{0.8425} \(\pm\) 0.003 & \textbf{0.8412} \(\pm\) 0.003 \\
 \bottomrule
 \end{tabular}
 \caption{Mean top-\(K\) weather similarity on the held-out test set, with 95\% CI half-width. Higher is better. Random is averaged over 20 seeds.}
@@ -105,10 +105,10 @@ Method & \(K{=}1\) & \(K{=}3\) & \(K{=}5\) & \(K{=}10\) \\
 Random          & 0\% & 0\% & 0\% & 0\% \\
 Zero-shot Jina  & 27.0\% & 23.2\% & 21.8\% & 20.7\% \\
 Contrastive FT  & 22.8\% & 20.6\% & 19.4\% & 18.8\% \\
-Extraction (Jaccard) & & & & \\
+Extraction (Jaccard) & \textbf{28.2\%} & \textbf{24.6\%} & \textbf{23.6\%} & \textbf{23.3\%} \\
 \bottomrule
 \end{tabular}
-\caption{Skill score \((m - \mathrm{random})/(1 - \mathrm{random})\) at each \(K\). 0\% means tied with random, 100\% means perfect retrieval. The 4-point gap between zero-shot and fine-tuned at \(K{=}1\) corresponds to roughly 15\% of the total skill the pretrained model achieved.}
+\caption{Skill score \((m - \mathrm{random})/(1 - \mathrm{random})\) at each \(K\). 0\% means tied with random, 100\% means perfect retrieval. The structured-extraction approach is the strongest at every \(K\), and the contrastive fine-tune is the weakest of the three learned methods.}
 \end{table}
 
 \paragraph{Contrastive fine-tuning hurt retrieval.}
@@ -117,7 +117,8 @@ Across every \(K\) the fine-tuned model was statistically significantly \emph{wo
 \paragraph{Pretrained embeddings already capture meaningful weather semantics.}
 The zero-shot model lifted retrieval similarity 5.6 percentage points above random at \(K{=}1\) (0.7904 \(\rightarrow\) 0.8469). That is the real win of the project: the textual content of an AFD, embedded by a generic pretrained sentence transformer, is predictive of the actual weather that followed without any task-specific training.
 
-\paragraph{Structured extraction.}
+\paragraph{Structured extraction was the strongest method.}
+Jaccard retrieval over LLM-extracted event frames beat zero-shot dense retrieval at every \(K\) (e.g., 0.8495 vs.\ 0.8469 at \(K{=}1\)) and beat the contrastive fine-tune by a wider margin (0.8495 vs.\ 0.8381). In skill-score terms it closes 28.2\% of the gap to perfect retrieval at \(K{=}1\), versus 27.0\% for zero-shot and 22.8\% for the fine-tune. Each AFD was reduced to a bag of event-type, intensity, and mechanism tokens via a few-shot Claude prompt, and matched by set Jaccard. The lift is small in absolute terms but consistent across all four \(K\) values, and is achieved with no task-specific training.
 
 
 \subsection{Why the contrastive approach failed}
