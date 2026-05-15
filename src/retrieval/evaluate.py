@@ -16,7 +16,7 @@ from sentence_transformers import SentenceTransformer
 
 
 KS = [1, 3, 5, 10]
-RANDOM_SEEDS = 20  # average random baseline over many draws so the floor is stable
+RANDOM_SEEDS = 20
 
 
 def load_splits():
@@ -31,7 +31,6 @@ def load_splits():
 
 
 def per_query_topk_sim(test_records, corpus, ids, k):
-    """For each query, mean weather_similarity over its top-k matches."""
     per_query = []
     for i, query in enumerate(test_records):
         match_sims = [
@@ -60,7 +59,6 @@ def summarize(per_query):
         "std": float(per_query.std(ddof=1)),
         "median": float(np.median(per_query)),
         "n": int(per_query.size),
-        # 95% CI half-width assuming normal
         "ci95_half": float(1.96 * per_query.std(ddof=1) / np.sqrt(per_query.size)),
     }
 
@@ -96,7 +94,7 @@ def evaluate_model(model, model_name, corpus, test_records, batch_size, label):
         per_query = per_query_topk_sim(test_records, corpus, ids, k)
         per_k[k] = {"per_query": per_query.tolist(), **summarize(per_query)}
         s = per_k[k]
-        print(f"[{label}] k={k}: mean={s['mean']:.4f} std={s['std']:.4f} ci95±{s['ci95_half']:.4f}")
+        print(f"[{label}] k={k}: mean={s['mean']:.4f} std={s['std']:.4f} ci95={s['ci95_half']:.4f}")
     return per_k, ids
 
 
@@ -124,7 +122,6 @@ def main():
                 random_topk_sim(test_records, corpus, k, seed=s).mean()
                 for s in range(RANDOM_SEEDS)
             ])
-            # also get per-query at a fixed seed for paired comparison later
             per_query = random_topk_sim(test_records, corpus, k, seed=0)
             results["random"][k] = {
                 "per_query": per_query.tolist(),
@@ -149,13 +146,11 @@ def main():
         ft_results, _ = evaluate_model(ft_model, args.finetuned, corpus, test_records, args.batch_size, "finetuned")
         results["fine_tuned"] = ft_results
 
-        # paired comparison: how often does fine-tuned beat zero-shot, per query?
         if "zero_shot" in results:
             for k in KS:
                 ft_pq = np.array(ft_results[k]["per_query"])
                 zs_pq = np.array(results["zero_shot"][k]["per_query"])
                 diffs = ft_pq - zs_pq
-                # paired t-style: mean diff / (std diff / sqrt(n))
                 t = float(diffs.mean() / (diffs.std(ddof=1) / np.sqrt(diffs.size) + 1e-12))
                 print(f"[paired ft vs zs] k={k}: mean_diff={diffs.mean():.4f} t={t:.2f} win_rate={(diffs>0).mean():.2%}")
                 results.setdefault("ft_vs_zs", {})[k] = {
@@ -170,7 +165,7 @@ def main():
             continue
         for k in KS:
             s = results[method][k]
-            print(f"  {method:>12} k={k:2d}: {s['mean']:.4f} ± {s['ci95_half']:.4f}")
+            print(f"  {method:>12} k={k:2d}: {s['mean']:.4f} +/- {s['ci95_half']:.4f}")
 
     out = args.out or (config.DATA_DIR / "eval_results.json")
     with open(out, "w") as f:

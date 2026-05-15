@@ -49,7 +49,7 @@ def main():
     out = args.out or (config.DATA_DIR / "qualitative_samples.txt")
     with open(out, "w", encoding="utf-8") as f:
         for i, q in enumerate(sample_queries):
-            f.write(f"{'='*80}\nQUERY {i+1} — {q['date']}\n")
+            f.write(f"{'='*80}\nQUERY {i+1} - {q['date']}\n")
             f.write(f"actual weather: {fmt_obs(q['obs'])}\n\n")
             f.write(q["text"][:2000])
             f.write("\n\n--- TOP MATCHES ---\n")

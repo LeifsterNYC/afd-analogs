@@ -19,10 +19,7 @@ def load_records(path=None):
 
 
 def build_triplets(records, seed=42):
-    """
-    Build (anchor, positive, negative) text triplets using full pairwise
-    weather similarity.
-    """
+    # for each anchor pick the most-similar and least-similar AFD by weather vector
     rng = random.Random(seed)
     n = len(records)
 

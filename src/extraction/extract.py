@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 import config
 
-# extracted frames live alongside processed/, one JSON file per date
 OUT_DIR = config.PROCESSED_DIR / "frames"
 
 PROMPT = """You are extracting structured event frames from a National Weather Service Area Forecast Discussion (AFD).
@@ -102,7 +101,7 @@ def run(limit=None, start_from=None, workers=4):
                 done += 1
             elif status == "fail":
                 failed += 1
-                print(f"{date} — failed: {err}")
+                print(f"{date} - failed: {err}")
             else:
                 skipped += 1
             if (done + failed) % 20 == 0 and (done + failed) > 0:

@@ -97,10 +97,8 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="jinaai/jina-embeddings-v2-base-en")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--max-seq", type=int, default=4096,
-                        help="max token length; drop to 2048 on small GPUs")
-    parser.add_argument("--amp", action="store_true",
-                        help="enable fp16 AMP; needed on <40GB GPUs but can hurt TripletLoss stability")
+    parser.add_argument("--max-seq", type=int, default=4096)
+    parser.add_argument("--amp", action="store_true")
     parser.add_argument("--data", default=None)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()

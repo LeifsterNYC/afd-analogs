@@ -13,7 +13,6 @@ FIELDS = ["tmpf", "sknt", "gust", "p01i", "wxcodes"]
 
 
 def fetch_station_year(station, year):
-    """Download one year of hourly METAR obs for a station. Returns CSV text."""
     iem_id = station.lstrip("K")
 
     params = {
@@ -34,7 +33,7 @@ def fetch_station_year(station, year):
         resp = requests.get(url, timeout=60)
         if resp.status_code in (429, 500, 502, 503, 504):
             wait = 5 * (2 ** attempt)
-            print(f"  {station} {year} — {resp.status_code}, backing off {wait}s")
+            print(f"  {station} {year}:{resp.status_code}, backing off {wait}s")
             time.sleep(wait)
             continue
         resp.raise_for_status()
@@ -50,16 +49,16 @@ def scrape():
         for year in range(config.START_YEAR, config.END_YEAR + 1):
             filepath = config.RAW_METAR_DIR / f"{station}_{year}.csv"
             if filepath.exists():
-                print(f"{station} {year} — already downloaded, skipping")
+                print(f"{station} {year}:already downloaded, skipping")
                 continue
 
             try:
                 text = fetch_station_year(station, year)
                 filepath.write_text(text)
                 lines = text.count("\n") - 5  # subtract header lines
-                print(f"{station} {year} — {lines} observations saved")
+                print(f"{station} {year}:{lines} observations saved")
             except requests.RequestException as e:
-                print(f"{station} {year} — error: {e}")
+                print(f"{station} {year}:error: {e}")
 
             time.sleep(1.0)
 

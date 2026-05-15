@@ -23,7 +23,6 @@ def load_frames(date):
 
 
 def frame_signature(frames):
-    """Reduce a list of event frames to a small bag of fields for cheap overlap scoring."""
     if not frames:
         return set()
     sig = set()
@@ -35,8 +34,8 @@ def frame_signature(frames):
             sig.add(("event", et))
         if et and it:
             sig.add(("event_int", et, it))
-        # mechanism is free text; take only the first word as a coarse signal
         if mc:
+            # mechanism is free text; first word only
             sig.add(("mech", mc.split()[0]))
     return sig
 

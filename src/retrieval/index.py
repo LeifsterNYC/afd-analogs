@@ -10,7 +10,7 @@ import config
 
 
 def embed(model, texts, batch_size=8):
-    """Encode texts and L2-normalize for cosine-via-inner-product."""
+    # normalize so inner product == cosine
     embs = model.encode(
         texts,
         batch_size=batch_size,
@@ -37,6 +37,5 @@ def save_index(idx, embs, records, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     faiss.write_index(idx, str(out_dir / "index.faiss"))
     np.save(out_dir / "embs.npy", embs)
-    # keep dates so we can map FAISS ids back to records
     with open(out_dir / "dates.txt", "w") as f:
         f.write("\n".join(r["date"] for r in records))
