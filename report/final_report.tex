@@ -56,10 +56,15 @@ We fine-tune \texttt{jinaai/jina-embeddings-v2-base-en} using a triplet loss
 where the positive and negative for each anchor AFD are mined by full-pairwise search over a similarity defined on observed weather. The weather similarity itself is the normalized Euclidean distance over a 37-dimensional vector built from per-station temperature, wind, gust, precipitation, thunderstorm and freezing-rain indicators, plus CWA-wide snow totals. This makes the textual representation learn to pull together AFDs that preceded similar real-world outcomes, rather than those that share surface vocabulary.
 
 \paragraph{LLM-based structured information extraction.}
-As a comparison approach the proposal called for either BIO sequence labeling with RoBERTa or LLM prompting. We chose LLM prompting because the project has no annotated training data for BIO. Each AFD is sent to Claude with a few-shot prompt asking for a JSON array of event frames \(\{\textit{event\_type}, \textit{intensity}, \textit{region}, \textit{time}, \textit{mechanism}\}\). Retrieval is then a Jaccard overlap on the frame signatures.
+As a comparison approach the proposal called for either BIO sequence labeling with RoBERTa or LLM prompting. We chose LLM prompting because the project has no annotated training data for BIO. Each AFD is sent to Anthropic's \texttt{claude-sonnet-4-6} (via the Claude Code CLI in print mode) with a few-shot prompt asking for a JSON array of event frames \(\{\textit{event\_type}, \textit{intensity}, \textit{region}, \textit{time}, \textit{mechanism}\}\). The event-type field is constrained to a small closed vocabulary (snow, rain, freezing rain, sleet, thunderstorm, wind, fog, heat, cold, lake-effect, other) and the intensity field similarly. Retrieval is then a Jaccard overlap on the frame signatures: each AFD becomes a bag of \((\textit{event}, \textit{event+intensity}, \textit{mechanism})\) tokens and the score between two AFDs is the standard set Jaccard \(|A \cap B| / |A \cup B|\).
 
 \subsection{Data pipeline}
+AFD text comes from the Iowa Environmental Mesonet's NWS text archive. For each calendar date in the BGM forecast area we keep the single longest issuance (multiple AFDs are issued per day; the longest is usually the main discussion rather than a short update). Hourly METAR observations come from the IEM ASOS API for KBGM, KRME, KAVP, KELM, and KITH, and are aggregated to daily summaries: max and min temperature, mean wind, max gust, total precipitation, plus a binary thunderstorm flag (any \texttt{TS}-containing weather code) and a binary freezing-rain flag (any \texttt{FZRA} code). Daily snow totals and snow depth come from NOAA NCEI Local Climatological Data at KBGM. The final 37-dimensional similarity vector is built by concatenating the per-station fields for the five stations with the two CWA-wide snow fields.
 
+We dropped records prior to 2007 because KRME did not report and LCD snow data was not yet available, leaving an inhomogeneous feature space across the corpus. Sensor outliers were filtered: max gust readings above 100 mph (a regional ceiling) were dropped as bad data, which removed 16 records mostly clustered at KAVP in 2003--2007. After alignment we had 6{,}810 AFD--weather pairs, randomly split 80/10/10 into train/val/test using a fixed seed. The 681-record test split is written to disk before training begins and is never seen by any model.
+
+\subsection{Scope changes from the proposal}
+We dropped the qualitative user study from the original proposal (recruit atmospheric science students for a blind rating of analog quality). The change was made late in the semester for time reasons; the quantitative evaluation in Section~2 stands on its own. We also pivoted on the LLM-extraction comparison: the proposal listed BIO sequence labeling on RoBERTa as the leading option, but we used LLM prompting instead because no annotated training data existed and prompting was both faster to implement and easier to iterate on.
 
 \section{Evaluation}
 
@@ -130,10 +135,18 @@ We see three plausible reasons, in roughly decreasing order of likelihood.
 \end{enumerate}
 
 \subsection{What we would do differently}
+The first thing we would do is scale up the corpus. 6{,}810 records from a single CWA is barely enough for contrastive learning to overcome a strong pretrained prior. Adding adjacent NWS offices in the northeast (BUF, ALB, CTP, OKX, etc.) would bring the corpus to 50{,}000--100{,}000 AFDs while keeping climate broadly comparable. CONUS-wide scrape would yield around a million.
 
+Even before that, we would change three things about the training loop. First, refresh the hardest-pair miner between epochs rather than mining once and reusing for all three epochs; once the model fits a triplet it stops being informative. Second, try \texttt{MultipleNegativesRankingLoss} (in-batch negatives) in place of explicit triplet mining; this is the standard sentence-transformer recipe for retrieval fine-tuning and tends to be more stable on small data. Third, target day-after weather rather than same-day weather, since AFDs are forecasts of what is going to happen rather than descriptions of current conditions.
+
+On the extraction side, the bag-of-tokens Jaccard score is the simplest thing that could possibly work and it still won. A richer scoring function, for example weighting matches on event type more than mechanism, or learning a small classifier over frame-pair features, would likely lift the result further. Combining extraction features with embedding features through a learned reranker is the obvious next step.
+
+Finally, the qualitative user study from the proposal was dropped for time. With the quantitative numbers in hand it would now be straightforward to set up: sample 20--30 query AFDs, show each rater the top-3 retrievals from the strongest model, ask whether the retrieved analogs are meteorologically reasonable. That gives a human-grounded check on the quantitative skill scores.
 
 \section{Conclusion}
+We set out to learn AFD embeddings that capture meteorological meaning, and to compare them against a structured-extraction approach. The structured-extraction approach won. LLM-extracted event frames matched by Jaccard overlap outperformed both zero-shot dense retrieval and a contrastive fine-tune of the same encoder at every \(K\), reaching 28.2\% skill at \(K{=}1\) versus 27.0\% for zero-shot and 22.8\% for the fine-tune. Contrastive fine-tuning on this small corpus actively damaged retrieval relative to the pretrained baseline, with a statistically significant negative effect at every \(K\) (paired \(t \in [-3.85, -3.29]\), \(p<0.001\)).
 
+The most useful single finding for anyone building an AFD analog system is that a pretrained sentence transformer used zero-shot already lifts retrieval similarity meaningfully above chance, and that explicit LLM-based extraction can lift it further without any task-specific training. The least useful is the contrastive fine-tune as we implemented it: more data, refreshed mining, and a different loss function would all be needed before this approach is viable.
 
 \section*{References}
 \begin{itemize}
@@ -150,7 +163,7 @@ We see three plausible reasons, in roughly decreasing order of likelihood.
   \item Hugging Face Transformers and sentence-transformers libraries (model loading, triplet loss, evaluator)
   \item PyTorch (training)
   \item FAISS (approximate nearest neighbor over embeddings)
-  \item Anthropic Claude (LLM prompting for structured extraction)
+  \item Anthropic Claude --- model \texttt{claude-sonnet-4-6}, accessed via the Claude Code CLI in print mode (LLM prompting for structured extraction)
 \end{itemize}
 
 \section*{Data Resources}
