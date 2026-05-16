@@ -134,6 +134,15 @@ We see three plausible reasons, in roughly decreasing order of likelihood.
   \item \textbf{Pretrained prior is strong, target signal is weak.} Jina v2 was trained on hundreds of millions of sentence pairs. Our downstream similarity is a normalized Euclidean distance on a 37-dimensional vector with a high seasonal autocorrelation floor (random retrieval already scores 0.79). The contrastive update damages the pretrained representation more than the weather signal can repair it.
 \end{enumerate}
 
+\subsection{Why structured extraction won}
+The result is small in absolute terms (one to two percentage points of skill at \(K{=}1\)) but consistent across every \(K\), and we think two factors explain it.
+
+First, the extraction approach pushes the hard semantic work onto a much larger model. The Jina embedding has 137M parameters trained on generic sentence pairs; the LLM doing the extraction is a frontier-scale model fine-tuned for instruction following. Asking the LLM to map free-form forecaster prose to a small closed vocabulary of event types is a task it does well, and the resulting token set is a much cleaner representation of ``what the AFD describes'' than a 768-dimensional dense vector trained on different objectives.
+
+Second, the extraction representation discards exactly the kind of information that hurts the dense embeddings on this task. AFDs contain many sentences about model disagreement, forecaster reasoning, ensemble agreement, and other meta-content that doesn't predict actual weather outcomes. The dense embedding sees and partially encodes all of it; the frame extraction throws it away and keeps only the event-level structure. For a retrieval task whose ground truth is the actual weather that occurred, throwing away meta-content is the right move.
+
+Both observations have a practical implication: on small specialized retrieval problems, an explicit pipeline that exploits a strong LLM as a feature extractor can outperform fine-tuning a smaller encoder, and the gap is wider when the relevant information is a small subset of the source text.
+
 \subsection{What we would do differently}
 The first thing we would do is scale up the corpus. 6{,}810 records from a single CWA is barely enough for contrastive learning to overcome a strong pretrained prior. Adding adjacent NWS offices in the northeast (BUF, ALB, CTP, OKX, etc.) would bring the corpus to 50{,}000--100{,}000 AFDs while keeping climate broadly comparable. CONUS-wide scrape would yield around a million.
 
@@ -143,10 +152,16 @@ On the extraction side, the bag-of-tokens Jaccard score is the simplest thing th
 
 Finally, the qualitative user study from the proposal was dropped for time. With the quantitative numbers in hand it would now be straightforward to set up: sample 20--30 query AFDs, show each rater the top-3 retrievals from the strongest model, ask whether the retrieved analogs are meteorologically reasonable. That gives a human-grounded check on the quantitative skill scores.
 
-\subsection{Conclusion}
-We set out to learn AFD embeddings that capture meteorological meaning, and to compare them against a structured-extraction approach. The structured-extraction approach won. LLM-extracted event frames matched by Jaccard overlap outperformed both zero-shot dense retrieval and a contrastive fine-tune of the same encoder at every \(K\), reaching 28.2\% skill at \(K{=}1\) versus 27.0\% for zero-shot and 22.8\% for the fine-tune. Contrastive fine-tuning on this small corpus actively damaged retrieval relative to the pretrained baseline, with a statistically significant negative effect at every \(K\) (paired \(t \in [-3.85, -3.29]\), \(p<0.001\)).
+\subsection{Conclusion: did we succeed?}
+Each of the three questions from Section~2.1 got a clear quantitative answer:
 
-The most useful single finding for anyone building an AFD analog system is that a pretrained sentence transformer used zero-shot already lifts retrieval similarity meaningfully above chance, and that explicit LLM-based extraction can lift it further without any task-specific training. The least useful is the contrastive fine-tune as we implemented it: more data, refreshed mining, and a different loss function would all be needed before this approach is viable.
+\begin{itemize}
+  \item \textbf{Q1. Does contrastive fine-tuning beat the zero-shot baseline?} No. The fine-tuned model was significantly worse than zero-shot at every \(K\) (paired \(t \in [-3.85, -3.29]\), \(p<0.001\); per-query win rate 35.8\%--46.4\%). The proposal's main hypothesis was not supported in this regime.
+  \item \textbf{Q2. Does structured extraction beat dense retrieval?} Yes. Frame-Jaccard scored higher than both zero-shot and contrastive at every \(K\), reaching 28.2\% skill at \(K{=}1\) versus 27.0\% and 22.8\%.
+  \item \textbf{Q3. How far above random does any method get us?} Roughly 20--28\% of the way from random to perfect retrieval, depending on \(K\). All three learned methods are clearly above the random floor with non-overlapping 95\% confidence intervals.
+\end{itemize}
+
+In summary: we consider the project a partial success. The negative result on the main hypothesis is itself a useful finding rather than a failure of the evaluation; we know quantitatively that contrastive fine-tuning on a corpus this size damages retrieval rather than helping it, and we have stated three concrete reasons we believe explain that result. The most useful positive finding for anyone building an AFD analog system is that a pretrained sentence transformer used zero-shot already lifts retrieval similarity meaningfully above chance, and that explicit LLM-based extraction can lift it further without any task-specific training. The least useful is the contrastive fine-tune as we implemented it: more data, refreshed mining, and a different loss function would all be needed before this approach is viable.
 
 \section*{References}
 \begin{itemize}
