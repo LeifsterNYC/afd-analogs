@@ -82,7 +82,9 @@ The weather similarity function used both during training (to mine triplets) and
 
 \paragraph{Note on the metric's range.} \(\mathrm{MAX\_DIST}\) is the theoretical maximum L2 distance assuming every feature is simultaneously at its climatological extreme (e.g., temperatures at -25\textdegree F and +95\textdegree F at the same time). Real pairs of days never get close to that bound, so observed similarity values cluster well above 0.5. On top of this compression, all our records come from a single CWA in upstate New York, where any two random January days share a winter climatology and look broadly similar. Both factors push the random baseline up to roughly 0.79.
 
-Because the absolute scale is misleading, we also report a \emph{skill score} that re-bases the comparison against random: \(\mathrm{skill}(m) = \bigl(m - \mathrm{random}\bigr) / \bigl(1 - \mathrm{random}\bigr)\). Random scores 0\% skill by construction; a perfect retriever scores 100\%.
+Because the absolute scale is misleading, we also report a \emph{skill score} that re-bases the comparison against random: \(\mathrm{skill}(m) = \bigl(m - \mathrm{random}\bigr) / \bigl(1 - \mathrm{random}\bigr)\). Random scores 0\% by definition; a perfect retriever scores 100\%.
+
+\paragraph{How to read the paired comparison numbers.} When we compare the fine-tuned model against zero-shot we use a paired test: for each of the 681 test queries we have both models' scores on that same query, so we can compute a per-query difference. We report two things from those 681 differences. The paired \(t\)-statistic is the mean difference divided by its standard error; values with \(|t| > 2\) are conventionally treated as statistically significant, and \(|t| > 3.29\) corresponds to \(p < 0.001\). The win rate is the fraction of queries where the fine-tuned model beat zero-shot; 50\% would be a coin flip, anything below means it loses on the majority of queries.
 
 \subsection{Results}
 
