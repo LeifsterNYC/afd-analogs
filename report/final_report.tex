@@ -143,13 +143,10 @@ On the extraction side, the bag-of-tokens Jaccard score is the simplest thing th
 
 Finally, the qualitative user study from the proposal was dropped for time. With the quantitative numbers in hand it would now be straightforward to set up: sample 20--30 query AFDs, show each rater the top-3 retrievals from the strongest model, ask whether the retrieved analogs are meteorologically reasonable. That gives a human-grounded check on the quantitative skill scores.
 
-\section{Conclusion}
+\subsection{Conclusion}
 We set out to learn AFD embeddings that capture meteorological meaning, and to compare them against a structured-extraction approach. The structured-extraction approach won. LLM-extracted event frames matched by Jaccard overlap outperformed both zero-shot dense retrieval and a contrastive fine-tune of the same encoder at every \(K\), reaching 28.2\% skill at \(K{=}1\) versus 27.0\% for zero-shot and 22.8\% for the fine-tune. Contrastive fine-tuning on this small corpus actively damaged retrieval relative to the pretrained baseline, with a statistically significant negative effect at every \(K\) (paired \(t \in [-3.85, -3.29]\), \(p<0.001\)).
 
 The most useful single finding for anyone building an AFD analog system is that a pretrained sentence transformer used zero-shot already lifts retrieval similarity meaningfully above chance, and that explicit LLM-based extraction can lift it further without any task-specific training. The least useful is the contrastive fine-tune as we implemented it: more data, refreshed mining, and a different loss function would all be needed before this approach is viable.
-
-\section*{Use of AI Tools}
-Anthropic's Claude was used in two distinct roles in this project. First, as a core methodological component of the system itself: every AFD in the corpus was passed through \texttt{claude -p} with a few-shot prompt to extract structured event frames, which were then used for the frame-Jaccard retrieval method described above. Second, as an authoring assistant: we used Claude to help write portions of the codebase, debug pipeline issues during development, and draft sections of this report and the accompanying slides. All design decisions, experimental choices, results, and interpretations are our own.
 
 \section*{References}
 \begin{itemize}
@@ -175,5 +172,11 @@ Anthropic's Claude was used in two distinct roles in this project. First, as a c
   \item IEM ASOS hourly METAR observations for five BGM-CWA stations: KBGM, KRME, KAVP, KELM, KITH
   \item NOAA NCEI Local Climatological Data for daily snow totals and depth, station KBGM
 \end{itemize}
+
+\section*{Relationship to Other Work}
+N/A. This project is not related to any other work that any team member is currently involved in.
+
+\section*{Use of AI Tools}
+Anthropic's Claude was used in two distinct roles in this project. First, as a core methodological component of the system itself: every AFD in the corpus was passed through \texttt{claude -p} with a few-shot prompt to extract structured event frames, which were then used for the frame-Jaccard retrieval method described above. Second, as an authoring assistant: we used Claude to help write portions of the codebase, debug pipeline issues during development, and draft sections of this report and the accompanying slides. All design decisions, experimental choices, results, and interpretations are our own.
 
 \end{document}
